@@ -17,7 +17,9 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
+  const uiRef = useRef<any>(null);
   const currentProxyIndexRef = useRef<number>(0);
+  const isLoadingRef = useRef<boolean>(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -30,15 +32,34 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
         return;
     }
 
+    // Ensure Shaka Player UI is loaded
+    if (!window.shaka.ui) {
+        console.error('Shaka Player UI library not loaded!');
+        return;
+    }
+
+    // Prevent multiple initializations
+    if (isLoadingRef.current) {
+        console.log('Player already loading, skipping...');
+        return;
+    }
+
     const player = new window.shaka.Player();
     playerRef.current = player;
     
     // Initialize the player UI
     const ui = new window.shaka.ui.Overlay(player, container, video);
-    // You can configure the UI controls here if needed
+    uiRef.current = ui;
+    
+    // Configure UI if needed
     // ui.configure({...});
     
     const onError = (error: any) => {
+        // Prevent error handling during loading process
+        if (isLoadingRef.current) {
+            return;
+        }
+        
         console.error('Shaka Player Error:', error.code, 'Object', error);
         
         // Enhanced error handling for common proxy-related issues
@@ -46,18 +67,35 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
             console.error('Manifest parsing failed - likely due to proxy issues or invalid stream format');
         } else if (error.code === 1001) {
             console.error('Network error - proxy might be failing or stream is unavailable');
+        } else if (error.code === 3016) {
+            console.error('Content is not supported - stream format might be incompatible');
+        } else if (error.code === 6007) {
+            console.error('Operation aborted - likely due to source change or component unmount');
         }
         
         // Log additional error details for better debugging
         if (error.detail) {
             console.error('Error details:', error.detail);
         }
+        
+        // Log the current proxy being used
+        console.error(`Error occurred with proxy index: ${currentProxyIndexRef.current}`);
     };
     
     const tryLoadWithProxy = async (proxyIndex: number = 0): Promise<void> => {
+        // Check if we should abort (component unmounting or src changed)
+        if (!playerRef.current || !src) {
+            throw new Error('Player or source not available');
+        }
+        
         try {
             const proxiedSrc = getProxiedUrl(src, proxyIndex);
             console.log(`Trying proxy ${proxyIndex}: ${proxiedSrc}`);
+            
+            // Validate the proxied URL
+            if (!proxiedSrc || proxiedSrc.trim() === '') {
+                throw new Error('Invalid proxied URL');
+            }
             
             const loadPromise = player.load(proxiedSrc);
             const timeoutPromise = new Promise<never>((_, reject) => 
@@ -74,13 +112,14 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
             if (proxyIndex < 3) {
                 await tryLoadWithProxy(proxyIndex + 1);
             } else {
-                throw new Error('All proxy methods failed');
+                throw new Error(`All proxy methods failed. Last error: ${error}`);
             }
         }
     };
 
     const initPlayer = async () => {
         try {
+            isLoadingRef.current = true;
             console.log(`Initializing player for source: ${src}`);
             
             await player.attach(video);
@@ -92,6 +131,8 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
         } catch (e) {
             console.error('Failed to initialize player after all attempts:', e);
             onError(e);
+        } finally {
+            isLoadingRef.current = false;
         }
     };
     
@@ -99,9 +140,26 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
 
     // Cleanup on component unmount or src change
     return () => {
+      isLoadingRef.current = false;
+      
+      if (uiRef.current) {
+        try {
+          uiRef.current.destroy();
+          console.log('Shaka Player UI destroyed.');
+        } catch (e) {
+          console.warn('Error destroying UI:', e);
+        }
+        uiRef.current = null;
+      }
+      
       if (playerRef.current) {
-        playerRef.current.destroy();
-        console.log('Shaka Player instance destroyed.');
+        try {
+          playerRef.current.destroy();
+          console.log('Shaka Player instance destroyed.');
+        } catch (e) {
+          console.warn('Error destroying player:', e);
+        }
+        playerRef.current = null;
       }
     };
   }, [src]); // Re-run effect when the 'src' prop changes
