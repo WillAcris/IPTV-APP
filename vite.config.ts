@@ -9,9 +9,23 @@ export default defineConfig({
       '@': path.resolve(__dirname, '.'),
     }
   },
+  server: {
+    host: '0.0.0.0',
+    port: 3000,
+    allowedHosts: [
+      'iptv-app-7x3r.onrender.com',
+      'localhost',
+      '127.0.0.1'
+    ]
+  },
   preview: {
     port: process.env.PORT ? parseInt(process.env.PORT) : 4173,
-    host: '0.0.0.0'
+    host: '0.0.0.0',
+    allowedHosts: [
+      'iptv-app-7x3r.onrender.com',
+      'localhost',
+      '127.0.0.1'
+    ]
   },
   build: {
     outDir: 'dist',
