@@ -142,132 +142,123 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
       return false;
     }
   };
-    
-    const onError = (error: any) => {
-        // Prevent error handling during loading process
-        if (isLoadingRef.current) {
-            return;
-        }
-        
-        console.error('Shaka Player Error:', error.code, 'Object', error);
-        
-        // Enhanced error handling for common proxy-related issues
-        if (error.code === 4000) {
-            console.error('Manifest parsing failed - likely due to proxy issues or invalid stream format');
-        } else if (error.code === 1001) {
-            console.error('Network error - proxy might be failing or stream is unavailable');
-        } else if (error.code === 3016) {
-            console.error('Content is not supported - stream format might be incompatible');
-        } else if (error.code === 6007) {
-            console.error('Operation aborted - likely due to source change or component unmount');
-        }
-        
-        // Log additional error details for better debugging
-        if (error.detail) {
-            console.error('Error details:', error.detail);
-        }
-        
-        // Log the current proxy being used
-        console.error(`Error occurred with proxy index: ${currentProxyIndexRef.current}`);
-    };
-    
-    const tryLoadWithProxy = async (proxyIndex: number = 0): Promise<void> => {
-        // Check if we should abort (component unmounting or src changed)
-        if (!playerRef.current || !src) {
-            throw new Error('Player or source not available');
-        }
-        
-        try {
-            const proxiedSrc = getProxiedUrl(src, proxyIndex);
-            console.log(`Trying proxy ${proxyIndex}: ${proxiedSrc}`);
-            
-            // Validate the proxied URL
-            if (!proxiedSrc || proxiedSrc.trim() === '') {
-                throw new Error('Invalid proxied URL');
-            }
-            
-            const loadPromise = player.load(proxiedSrc);
-            const timeoutPromise = new Promise<never>((_, reject) => 
-                setTimeout(() => reject(new Error('Loading timeout after 15 seconds')), 15000)
-            );
-            
-            await Promise.race([loadPromise, timeoutPromise]);
-            console.log(`Successfully loaded with proxy ${proxyIndex}`);
-            currentProxyIndexRef.current = proxyIndex;
-        } catch (error) {
-            console.warn(`Proxy ${proxyIndex} failed:`, error);
-            
-            // Try next proxy if available (max 4 proxies)
-            if (proxyIndex < 3) {
-                await tryLoadWithProxy(proxyIndex + 1);
-            } else {
-                throw new Error(`All proxy methods failed. Last error: ${error}`);
-            }
-        }
-    };
 
-    const initPlayer = async () => {
-        try {
-            isLoadingRef.current = true;
-            console.log(`Initializing player for source: ${src}`);
-            
-            await player.attach(video);
-            player.addEventListener('error', onError);
-            
-            // Try loading with different proxies
-            await tryLoadWithProxy(0);
-            console.log('The video has been loaded successfully!');
-        } catch (e) {
-            console.error('Failed to initialize player after all attempts:', e);
-            onError(e);
-        } finally {
-            isLoadingRef.current = false;
-        }
-    };
-    
-    initPlayer();
+  const tryLoadWithProxy = async (proxyIndex: number = 0): Promise<void> => {
+    const players: Array<{type: PlayerType, loader: (url: string) => Promise<boolean>}> = [
+      { type: 'native', loader: loadWithNativePlayer },
+      { type: 'hls', loader: loadWithHlsJs },
+      { type: 'shaka', loader: loadWithShakaPlayer }
+    ];
 
-    // Cleanup on component unmount or src change
-    return () => {
-      isLoadingRef.current = false;
+    for (const playerConfig of players) {
+      try {
+        console.log(`🔄 Trying ${playerConfig.type} with proxy ${proxyIndex}`);
+        const proxiedUrl = getProxiedUrl(src, proxyIndex);
+        
+        if (await playerConfig.loader(proxiedUrl)) {
+          setCurrentPlayer(playerConfig.type);
+          setCurrentProxyIndex(proxyIndex);
+          setError(null);
+          return;
+        }
+      } catch (error) {
+        console.warn(`❌ ${playerConfig.type} with proxy ${proxyIndex} failed:`, error);
+      }
+    }
+
+    // Try next proxy
+    if (proxyIndex < 3) {
+      await tryLoadWithProxy(proxyIndex + 1);
+    } else {
+      throw new Error('All players and proxies failed');
+    }
+  };
+
+  const initPlayer = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      console.log(`🚀 Loading source: ${src}`);
       
-      if (uiRef.current) {
-        try {
-          uiRef.current.destroy();
-          console.log('Shaka Player UI destroyed.');
-        } catch (e) {
-          console.warn('Error destroying UI:', e);
-        }
-        uiRef.current = null;
+      await tryLoadWithProxy(0);
+    } catch (error) {
+      console.error('❌ All loading attempts failed:', error);
+      setError(`Failed to load stream: ${error}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const cleanup = () => {
+    try {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+        console.log('🧹 HLS.js cleaned up');
       }
       
       if (playerRef.current) {
-        try {
-          playerRef.current.destroy();
-          console.log('Shaka Player instance destroyed.');
-        } catch (e) {
-          console.warn('Error destroying player:', e);
-        }
+        playerRef.current.destroy();
         playerRef.current = null;
+        console.log('🧹 Shaka Player cleaned up');
       }
-    };
-  }, [src]); // Re-run effect when the 'src' prop changes
+      
+      if (videoRef.current) {
+        videoRef.current.src = '';
+        videoRef.current.load();
+      }
+    } catch (error) {
+      console.warn('⚠️ Cleanup error:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (!src) return;
+    
+    cleanup();
+    initPlayer();
+    
+    return cleanup;
+  }, [src]);
 
   return (
-    <div 
-        ref={containerRef}
-        className="w-full aspect-video bg-black rounded-lg shadow-2xl overflow-hidden"
-    >
+    <div className="video-player-container relative w-full aspect-video bg-black rounded-lg shadow-2xl overflow-hidden">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80">
+          <div className="text-white text-center">
+            <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+            <div>Carregando stream...</div>
+          </div>
+        </div>
+      )}
+      
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-red-900 bg-opacity-80">
+          <div className="text-white text-center p-4">
+            <div className="mb-4">❌ {error}</div>
+            <button 
+              onClick={initPlayer} 
+              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white"
+            >
+              Tentar Novamente
+            </button>
+          </div>
+        </div>
+      )}
+      
       <video
         ref={videoRef}
-        className="w-full h-full"
+        controls
         autoPlay
-        playsInline
-        // The poster can be used to show a logo or loading image
-        // poster="//shaka-player-demo.appspot.com/assets/poster.jpg"
-      >
-        Your browser does not support the video tag.
-      </video>
+        muted
+        className="w-full h-full"
+      />
+      
+      {!isLoading && !error && (
+        <div className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+          {currentPlayer} | proxy {currentProxyIndex}
+        </div>
+      )}
     </div>
   );
 };
