@@ -71,7 +71,10 @@ export const getChannels = async (): Promise<Channel[]> => {
     const nameLower = name.toLowerCase();
     
     // Ignore channels with specific keywords in the name
-    const bannedKeywords = ['manotv', 'doações', 'doacoes', 'doacao', 'doação'];
+    const bannedKeywords = [
+      'manotv', 'doações', 'doacoes', 'doacao', 'doação',
+      'canal do cliente', '75991634025'
+    ];
     if (bannedKeywords.some(keyword => nameLower.includes(keyword))) {
       return true;
     }
