@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { getProxiedUrl } from '../services/iptvService';
 
-// Make Shaka Player and HLS.js available in the window scope
+// Make players available in the window scope
 declare global {
   interface Window {
     shaka: any;
     Hls: any;
+    videojs: any;
+    Plyr: any;
   }
 }
 
@@ -14,12 +16,14 @@ interface VideoPlayerProps {
   channelName?: string;
 }
 
-type PlayerType = 'native' | 'hls' | 'shaka';
+type PlayerType = 'native' | 'videojs' | 'hls' | 'plyr' | 'shaka';
 
 export const VideoPlayer = ({ src }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<any>(null);
   const hlsRef = useRef<any>(null);
+  const videojsRef = useRef<any>(null);
+  const plyrRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPlayer, setCurrentPlayer] = useState<PlayerType>('native');
@@ -59,6 +63,126 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
           resolve(false);
         }, 10000);
       });
+    } catch {
+      return false;
+    }
+  };
+
+  const loadWithVideoJs = async (url: string): Promise<boolean> => {
+    try {
+      console.log('🎬 Trying Video.js player...');
+      const video = videoRef.current;
+      if (!video || !window.videojs) return false;
+
+      // Ensure video has required attributes for Video.js
+      video.setAttribute('data-setup', '{}');
+      video.className = 'video-js vjs-default-skin';
+      
+      const player = window.videojs(video, {
+        controls: true,
+        autoplay: false,
+        preload: 'auto',
+        fluid: true,
+        responsive: true,
+        html5: {
+          vhs: {
+            overrideNative: true
+          },
+          nativeVideoTracks: false,
+          nativeAudioTracks: false,
+          nativeTextTracks: false
+        }
+      });
+
+      videojsRef.current = player;
+      
+      return new Promise((resolve) => {
+        player.ready(() => {
+          player.src({
+            src: url,
+            type: 'application/x-mpegURL'
+          });
+          
+          player.one('loadstart', () => {
+            console.log('✅ Video.js loaded successfully');
+            resolve(true);
+          });
+          
+          player.one('error', () => {
+            console.log('❌ Video.js failed');
+            resolve(false);
+          });
+          
+          setTimeout(() => resolve(false), 10000);
+        });
+      });
+    } catch {
+      return false;
+    }
+  };
+
+  const loadWithPlyr = async (url: string): Promise<boolean> => {
+    try {
+      console.log('🎬 Trying Plyr player...');
+      const video = videoRef.current;
+      if (!video) return false;
+
+      // Load Plyr dynamically if not loaded
+      if (!window.Plyr) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.plyr.io/3.7.8/plyr.js';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+          
+          // Also load CSS
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = 'https://cdn.plyr.io/3.7.8/plyr.css';
+          document.head.appendChild(link);
+        });
+      }
+
+      // Load HLS.js for Plyr
+      if (!window.Hls) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+
+      if (window.Hls.isSupported()) {
+        const hls = new window.Hls();
+        hlsRef.current = hls;
+        hls.loadSource(url);
+        hls.attachMedia(video);
+
+        const player = new window.Plyr(video, {
+          controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen']
+        });
+        
+        plyrRef.current = player;
+        
+        return new Promise((resolve) => {
+          hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+            console.log('✅ Plyr + HLS.js loaded successfully');
+            resolve(true);
+          });
+          
+          hls.on(window.Hls.Events.ERROR, () => {
+            console.log('❌ Plyr + HLS.js failed');
+            resolve(false);
+          });
+          
+          setTimeout(() => resolve(false), 10000);
+        });
+      }
+      
+      return false;
     } catch {
       return false;
     }
@@ -146,6 +270,8 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
   const tryLoadWithProxy = async (proxyIndex: number = 0): Promise<void> => {
     const players: Array<{type: PlayerType, loader: (url: string) => Promise<boolean>}> = [
       { type: 'native', loader: loadWithNativePlayer },
+      { type: 'videojs', loader: loadWithVideoJs },
+      { type: 'plyr', loader: loadWithPlyr },
       { type: 'hls', loader: loadWithHlsJs },
       { type: 'shaka', loader: loadWithShakaPlayer }
     ];
@@ -191,6 +317,18 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
 
   const cleanup = () => {
     try {
+      if (videojsRef.current) {
+        videojsRef.current.dispose();
+        videojsRef.current = null;
+        console.log('🧹 Video.js cleaned up');
+      }
+      
+      if (plyrRef.current) {
+        plyrRef.current.destroy();
+        plyrRef.current = null;
+        console.log('🧹 Plyr cleaned up');
+      }
+      
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
