@@ -68,8 +68,11 @@ export const getChannels = async (): Promise<Channel[]> => {
    * Checks if a channel should be ignored based on name or other criteria
    */
   const shouldIgnoreChannel = (name: string, url: string): boolean => {
-    // Ignore channels with "ManoTV" in the name
-    if (name.toLowerCase().includes('manotv')) {
+    const nameLower = name.toLowerCase();
+    
+    // Ignore channels with specific keywords in the name
+    const bannedKeywords = ['manotv', 'doações', 'doacoes', 'doacao', 'doação'];
+    if (bannedKeywords.some(keyword => nameLower.includes(keyword))) {
       return true;
     }
 
@@ -239,9 +242,11 @@ export const getChannels = async (): Promise<Channel[]> => {
   const result: Channel[] = [];
   for (const grp of groupsOrder) {
     const items = groupsMap[grp] || [];
+    console.log(`Group "${grp}": ${items.length} channels`);
     for (const ch of items) result.push(ch);
   }
 
+  console.log(`Total channels loaded: ${result.length}`);
   return result;
 };
 

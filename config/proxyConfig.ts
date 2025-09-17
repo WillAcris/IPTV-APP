@@ -11,6 +11,11 @@ export interface ProxyConfig {
 
 export const PROXY_CONFIGS: ProxyConfig[] = [
   {
+    name: 'Direct (No Proxy)',
+    baseUrl: '',
+    buildUrl: (url: string) => url // Try direct connection first
+  },
+  {
     name: 'AllOrigins',
     baseUrl: 'https://api.allorigins.win/raw?url=',
     buildUrl: (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
@@ -21,9 +26,9 @@ export const PROXY_CONFIGS: ProxyConfig[] = [
     buildUrl: (url: string) => `https://api.codetabs.com/v1/proxy?quest=${url}`
   },
   {
-    name: 'CORS Anywhere (Heroku)',
-    baseUrl: 'https://cors-anywhere.herokuapp.com/',
-    buildUrl: (url: string) => `https://cors-anywhere.herokuapp.com/${url}`
+    name: 'ThingProxy',
+    baseUrl: 'https://thingproxy.freeboard.io/fetch/',
+    buildUrl: (url: string) => `https://thingproxy.freeboard.io/fetch/${url}`
   }
 ];
 

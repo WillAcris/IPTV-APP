@@ -17,6 +17,7 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
+  const currentProxyIndexRef = useRef<number>(0);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -53,16 +54,43 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
         }
     };
     
+    const tryLoadWithProxy = async (proxyIndex: number = 0): Promise<void> => {
+        try {
+            const proxiedSrc = getProxiedUrl(src, proxyIndex);
+            console.log(`Trying proxy ${proxyIndex}: ${proxiedSrc}`);
+            
+            const loadPromise = player.load(proxiedSrc);
+            const timeoutPromise = new Promise<never>((_, reject) => 
+                setTimeout(() => reject(new Error('Loading timeout after 15 seconds')), 15000)
+            );
+            
+            await Promise.race([loadPromise, timeoutPromise]);
+            console.log(`Successfully loaded with proxy ${proxyIndex}`);
+            currentProxyIndexRef.current = proxyIndex;
+        } catch (error) {
+            console.warn(`Proxy ${proxyIndex} failed:`, error);
+            
+            // Try next proxy if available (max 4 proxies)
+            if (proxyIndex < 3) {
+                await tryLoadWithProxy(proxyIndex + 1);
+            } else {
+                throw new Error('All proxy methods failed');
+            }
+        }
+    };
+
     const initPlayer = async () => {
         try {
+            console.log(`Initializing player for source: ${src}`);
+            
             await player.attach(video);
             player.addEventListener('error', onError);
-            // Use the centralized proxy function to avoid CORS issues, which
-            // often cause Shaka's NETWORK.BAD_HTTP_STATUS (1001) error.
-            const proxiedSrc = getProxiedUrl(src);
-            await player.load(proxiedSrc);
+            
+            // Try loading with different proxies
+            await tryLoadWithProxy(0);
             console.log('The video has been loaded successfully!');
         } catch (e) {
+            console.error('Failed to initialize player after all attempts:', e);
             onError(e);
         }
     };
