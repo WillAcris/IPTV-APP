@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { getProxiedUrl } from '../services/iptvService';
 
-// Make players available in the window scope
 declare global {
   interface Window {
-    shaka: any;
     Hls: any;
-    videojs: any;
-    Plyr: any;
+    shaka: any;
   }
 }
 
@@ -16,270 +13,214 @@ interface VideoPlayerProps {
   channelName?: string;
 }
 
-type PlayerType = 'native' | 'videojs' | 'hls' | 'plyr' | 'shaka';
+type PlayerType = 'native' | 'hls' | 'shaka';
 
 export const VideoPlayer = ({ src }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const playerRef = useRef<any>(null);
   const hlsRef = useRef<any>(null);
-  const videojsRef = useRef<any>(null);
-  const plyrRef = useRef<any>(null);
+  const shakaRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPlayer, setCurrentPlayer] = useState<PlayerType>('native');
   const [currentProxyIndex, setCurrentProxyIndex] = useState<number>(0);
+  const [debugInfo, setDebugInfo] = useState<string>('');
+
+  const logDebug = (message: string) => {
+    console.log(`🔍 [VideoPlayer] ${message}`);
+    setDebugInfo(message);
+  };
+
+  // Test URL connectivity first
+  const testUrl = async (url: string): Promise<boolean> => {
+    try {
+      logDebug(`Testing URL connectivity: ${url.substring(0, 100)}...`);
+      const response = await fetch(url, { 
+        method: 'HEAD',
+        mode: 'no-cors',
+        cache: 'no-cache'
+      });
+      return true; // no-cors always returns opaque response
+    } catch (error) {
+      logDebug(`URL test failed: ${error}`);
+      return false;
+    }
+  };
 
   const loadWithNativePlayer = async (url: string): Promise<boolean> => {
-    try {
-      console.log('🎬 Trying native HTML5 player...');
+    return new Promise((resolve) => {
+      logDebug(`Trying Native HTML5 player...`);
       const video = videoRef.current;
-      if (!video) return false;
+      if (!video) {
+        logDebug('❌ Native: Video element not available');
+        resolve(false);
+        return;
+      }
 
+      let resolved = false;
+      const resolveOnce = (success: boolean, reason: string) => {
+        if (resolved) return;
+        resolved = true;
+        cleanup();
+        logDebug(success ? `✅ Native: ${reason}` : `❌ Native: ${reason}`);
+        resolve(success);
+      };
+
+      const cleanup = () => {
+        video.removeEventListener('canplay', onCanPlay);
+        video.removeEventListener('loadeddata', onLoadedData);
+        video.removeEventListener('error', onError);
+        video.removeEventListener('loadstart', onLoadStart);
+      };
+
+      const onCanPlay = () => resolveOnce(true, 'Can play - video ready');
+      const onLoadedData = () => resolveOnce(true, 'Data loaded');
+      const onLoadStart = () => logDebug('Native: Load started');
+      const onError = (e: any) => {
+        const error = e.target?.error;
+        let errorMsg = 'Unknown error';
+        if (error) {
+          switch (error.code) {
+            case 1: errorMsg = 'MEDIA_ERR_ABORTED'; break;
+            case 2: errorMsg = 'MEDIA_ERR_NETWORK'; break;
+            case 3: errorMsg = 'MEDIA_ERR_DECODE'; break;
+            case 4: errorMsg = 'MEDIA_ERR_SRC_NOT_SUPPORTED'; break;
+          }
+        }
+        resolveOnce(false, `Error: ${errorMsg}`);
+      };
+
+      video.addEventListener('canplay', onCanPlay);
+      video.addEventListener('loadeddata', onLoadedData);
+      video.addEventListener('error', onError);
+      video.addEventListener('loadstart', onLoadStart);
+
+      // Configure video element
+      video.crossOrigin = 'anonymous';
+      video.preload = 'metadata';
       video.src = url;
       video.load();
-      
-      return new Promise((resolve) => {
-        const onCanPlay = () => {
-          video.removeEventListener('canplay', onCanPlay);
-          video.removeEventListener('error', onError);
-          console.log('✅ Native player loaded successfully');
-          resolve(true);
-        };
-        
-        const onError = () => {
-          video.removeEventListener('canplay', onCanPlay);
-          video.removeEventListener('error', onError);
-          console.log('❌ Native player failed');
-          resolve(false);
-        };
 
-        video.addEventListener('canplay', onCanPlay);
-        video.addEventListener('error', onError);
-        
-        // Timeout after 10 seconds
-        setTimeout(() => {
-          video.removeEventListener('canplay', onCanPlay);
-          video.removeEventListener('error', onError);
-          resolve(false);
-        }, 10000);
-      });
-    } catch {
-      return false;
-    }
-  };
-
-  const loadWithVideoJs = async (url: string): Promise<boolean> => {
-    try {
-      console.log('🎬 Trying Video.js player...');
-      const video = videoRef.current;
-      if (!video || !window.videojs) return false;
-
-      // Ensure video has required attributes for Video.js
-      video.setAttribute('data-setup', '{}');
-      video.className = 'video-js vjs-default-skin';
-      
-      const player = window.videojs(video, {
-        controls: true,
-        autoplay: false,
-        preload: 'auto',
-        fluid: true,
-        responsive: true,
-        html5: {
-          vhs: {
-            overrideNative: true
-          },
-          nativeVideoTracks: false,
-          nativeAudioTracks: false,
-          nativeTextTracks: false
-        }
-      });
-
-      videojsRef.current = player;
-      
-      return new Promise((resolve) => {
-        player.ready(() => {
-          player.src({
-            src: url,
-            type: 'application/x-mpegURL'
-          });
-          
-          player.one('loadstart', () => {
-            console.log('✅ Video.js loaded successfully');
-            resolve(true);
-          });
-          
-          player.one('error', () => {
-            console.log('❌ Video.js failed');
-            resolve(false);
-          });
-          
-          setTimeout(() => resolve(false), 10000);
-        });
-      });
-    } catch {
-      return false;
-    }
-  };
-
-  const loadWithPlyr = async (url: string): Promise<boolean> => {
-    try {
-      console.log('🎬 Trying Plyr player...');
-      const video = videoRef.current;
-      if (!video) return false;
-
-      // Load Plyr dynamically if not loaded
-      if (!window.Plyr) {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = 'https://cdn.plyr.io/3.7.8/plyr.js';
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-          
-          // Also load CSS
-          const link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = 'https://cdn.plyr.io/3.7.8/plyr.css';
-          document.head.appendChild(link);
-        });
-      }
-
-      // Load HLS.js for Plyr
-      if (!window.Hls) {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
-      }
-
-      if (window.Hls.isSupported()) {
-        const hls = new window.Hls();
-        hlsRef.current = hls;
-        hls.loadSource(url);
-        hls.attachMedia(video);
-
-        const player = new window.Plyr(video, {
-          controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen']
-        });
-        
-        plyrRef.current = player;
-        
-        return new Promise((resolve) => {
-          hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-            console.log('✅ Plyr + HLS.js loaded successfully');
-            resolve(true);
-          });
-          
-          hls.on(window.Hls.Events.ERROR, () => {
-            console.log('❌ Plyr + HLS.js failed');
-            resolve(false);
-          });
-          
-          setTimeout(() => resolve(false), 10000);
-        });
-      }
-      
-      return false;
-    } catch {
-      return false;
-    }
+      // Timeout
+      setTimeout(() => resolveOnce(false, 'Timeout after 15 seconds'), 15000);
+    });
   };
 
   const loadWithHlsJs = async (url: string): Promise<boolean> => {
-    try {
-      console.log('🎬 Trying HLS.js player...');
+    return new Promise(async (resolve) => {
+      logDebug(`Trying HLS.js player...`);
       const video = videoRef.current;
-      if (!video) return false;
-
-      // Load HLS.js dynamically if not loaded
-      if (!window.Hls) {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
+      if (!video) {
+        logDebug('❌ HLS.js: Video element not available');
+        resolve(false);
+        return;
       }
 
-      if (window.Hls.isSupported()) {
+      try {
+        // Load HLS.js if not available
+        if (!window.Hls) {
+          logDebug('Loading HLS.js library...');
+          await new Promise((res, rej) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest';
+            script.onload = res;
+            script.onerror = rej;
+            document.head.appendChild(script);
+          });
+        }
+
+        if (!window.Hls.isSupported()) {
+          logDebug('❌ HLS.js: Not supported in this browser');
+          resolve(false);
+          return;
+        }
+
         const hls = new window.Hls({
           enableWorker: true,
           lowLatencyMode: true,
           backBufferLength: 90
         });
-        
+
         hlsRef.current = hls;
+        let resolved = false;
+
+        const resolveOnce = (success: boolean, reason: string) => {
+          if (resolved) return;
+          resolved = true;
+          logDebug(success ? `✅ HLS.js: ${reason}` : `❌ HLS.js: ${reason}`);
+          resolve(success);
+        };
+
+        hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+          resolveOnce(true, 'Manifest parsed successfully');
+        });
+
+        hls.on(window.Hls.Events.ERROR, (event: any, data: any) => {
+          if (data.fatal) {
+            resolveOnce(false, `Fatal error: ${data.type}/${data.details}`);
+          }
+        });
+
         hls.loadSource(url);
         hls.attachMedia(video);
-        
-        return new Promise((resolve) => {
-          hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
-            console.log('✅ HLS.js loaded successfully');
-            resolve(true);
-          });
-          
-          hls.on(window.Hls.Events.ERROR, (event: any, data: any) => {
-            console.log('❌ HLS.js failed:', data);
-            resolve(false);
-          });
-          
-          setTimeout(() => resolve(false), 10000);
-        });
+
+        // Timeout
+        setTimeout(() => resolveOnce(false, 'Timeout after 15 seconds'), 15000);
+
+      } catch (error) {
+        logDebug(`❌ HLS.js: Exception - ${error}`);
+        resolve(false);
       }
-      
-      return false;
-    } catch {
-      return false;
-    }
+    });
   };
 
   const loadWithShakaPlayer = async (url: string): Promise<boolean> => {
-    try {
-      console.log('🎬 Trying Shaka Player...');
+    return new Promise(async (resolve) => {
+      logDebug(`Trying Shaka Player...`);
       const video = videoRef.current;
-      if (!video || !window.shaka) return false;
+      if (!video || !window.shaka) {
+        logDebug('❌ Shaka: Not available');
+        resolve(false);
+        return;
+      }
 
-      const player = new window.shaka.Player(video);
-      playerRef.current = player;
-      
-      player.configure({
-        streaming: {
-          retryParameters: {
-            timeout: 30000,
-            maxAttempts: 3,
-            baseDelay: 1000,
-            backoffFactor: 2,
-            fuzzFactor: 0.5
+      try {
+        const player = new window.shaka.Player(video);
+        shakaRef.current = player;
+
+        player.configure({
+          streaming: {
+            retryParameters: {
+              timeout: 30000,
+              maxAttempts: 2,
+              baseDelay: 1000
+            }
           }
-        }
-      });
+        });
 
-      await player.load(url);
-      console.log('✅ Shaka Player loaded successfully');
-      return true;
-    } catch (error) {
-      console.log('❌ Shaka Player failed:', error);
-      return false;
-    }
+        await player.load(url);
+        logDebug('✅ Shaka: Loaded successfully');
+        resolve(true);
+
+      } catch (error) {
+        logDebug(`❌ Shaka: Failed - ${error}`);
+        resolve(false);
+      }
+    });
   };
 
   const tryLoadWithProxy = async (proxyIndex: number = 0): Promise<void> => {
-    const players: Array<{type: PlayerType, loader: (url: string) => Promise<boolean>}> = [
-      { type: 'native', loader: loadWithNativePlayer },
-      { type: 'videojs', loader: loadWithVideoJs },
-      { type: 'plyr', loader: loadWithPlyr },
-      { type: 'hls', loader: loadWithHlsJs },
-      { type: 'shaka', loader: loadWithShakaPlayer }
+    const players = [
+      { type: 'native' as PlayerType, loader: loadWithNativePlayer },
+      { type: 'hls' as PlayerType, loader: loadWithHlsJs },
+      { type: 'shaka' as PlayerType, loader: loadWithShakaPlayer }
     ];
+
+    logDebug(`Trying proxy ${proxyIndex} with ${players.length} players`);
 
     for (const playerConfig of players) {
       try {
-        console.log(`🔄 Trying ${playerConfig.type} with proxy ${proxyIndex}`);
         const proxiedUrl = getProxiedUrl(src, proxyIndex);
+        logDebug(`${playerConfig.type} attempting: ${proxiedUrl.substring(0, 100)}...`);
         
         if (await playerConfig.loader(proxiedUrl)) {
           setCurrentPlayer(playerConfig.type);
@@ -288,12 +229,13 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
           return;
         }
       } catch (error) {
-        console.warn(`❌ ${playerConfig.type} with proxy ${proxyIndex} failed:`, error);
+        logDebug(`${playerConfig.type} failed: ${error}`);
       }
     }
 
     // Try next proxy
     if (proxyIndex < 3) {
+      logDebug(`All players failed with proxy ${proxyIndex}, trying next...`);
       await tryLoadWithProxy(proxyIndex + 1);
     } else {
       throw new Error('All players and proxies failed');
@@ -304,11 +246,12 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log(`🚀 Loading source: ${src}`);
+      logDebug(`🚀 Starting load for: ${src.substring(0, 100)}...`);
       
       await tryLoadWithProxy(0);
+      logDebug('✅ Player initialization completed successfully');
     } catch (error) {
-      console.error('❌ All loading attempts failed:', error);
+      logDebug(`❌ All attempts failed: ${error}`);
       setError(`Failed to load stream: ${error}`);
     } finally {
       setIsLoading(false);
@@ -317,28 +260,14 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
 
   const cleanup = () => {
     try {
-      if (videojsRef.current) {
-        videojsRef.current.dispose();
-        videojsRef.current = null;
-        console.log('🧹 Video.js cleaned up');
-      }
-      
-      if (plyrRef.current) {
-        plyrRef.current.destroy();
-        plyrRef.current = null;
-        console.log('🧹 Plyr cleaned up');
-      }
-      
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
-        console.log('🧹 HLS.js cleaned up');
       }
       
-      if (playerRef.current) {
-        playerRef.current.destroy();
-        playerRef.current = null;
-        console.log('🧹 Shaka Player cleaned up');
+      if (shakaRef.current) {
+        shakaRef.current.destroy();
+        shakaRef.current = null;
       }
       
       if (videoRef.current) {
@@ -346,7 +275,7 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
         videoRef.current.load();
       }
     } catch (error) {
-      console.warn('⚠️ Cleanup error:', error);
+      console.warn('Cleanup error:', error);
     }
   };
 
@@ -360,25 +289,28 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
   }, [src]);
 
   return (
-    <div className="video-player-container relative w-full aspect-video bg-black rounded-lg shadow-2xl overflow-hidden">
+    <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80">
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-90">
           <div className="text-white text-center">
-            <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
-            <div>Carregando stream...</div>
+            <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+            <div className="text-lg mb-2">Carregando Stream...</div>
+            <div className="text-sm text-gray-400">{debugInfo}</div>
           </div>
         </div>
       )}
       
       {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-red-900 bg-opacity-80">
-          <div className="text-white text-center p-4">
-            <div className="mb-4">❌ {error}</div>
+        <div className="absolute inset-0 flex items-center justify-center bg-red-900 bg-opacity-90">
+          <div className="text-white text-center p-6">
+            <div className="text-lg mb-4">❌ Erro ao Carregar</div>
+            <div className="text-sm mb-4 text-gray-300">{error}</div>
+            <div className="text-xs mb-4 text-gray-400">Debug: {debugInfo}</div>
             <button 
               onClick={initPlayer} 
-              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-white"
+              className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded text-white font-medium"
             >
-              Tentar Novamente
+              🔄 Tentar Novamente
             </button>
           </div>
         </div>
@@ -389,12 +321,22 @@ export const VideoPlayer = ({ src }: VideoPlayerProps) => {
         controls
         autoPlay
         muted
+        playsInline
         className="w-full h-full"
-      />
+        style={{ objectFit: 'contain' }}
+      >
+        Seu navegador não suporta o elemento de vídeo.
+      </video>
       
       {!isLoading && !error && (
-        <div className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+        <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-3 py-1 rounded">
           {currentPlayer} | proxy {currentProxyIndex}
+        </div>
+      )}
+      
+      {debugInfo && !isLoading && !error && (
+        <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white text-xs px-3 py-1 rounded max-w-md">
+          {debugInfo}
         </div>
       )}
     </div>
