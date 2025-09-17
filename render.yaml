@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: react-iptv-player
+    runtime: node
+    plan: free
+    region: frankfurt  # ou oregon
+    branch: main
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production
+    staticPublishPath: ./dist
