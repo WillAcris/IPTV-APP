@@ -5,7 +5,7 @@ interface LiveChatProps {
   channelName: string;
 }
 
-// Usar a API do backend (funciona tanto em dev quanto em produÃ§Ã£o)
+// Usar a API do backend (funciona tanto em dev quanto em producao)
 const API_URL = window.location.origin.includes('localhost') 
   ? 'http://localhost:3000/api' 
   : '/api';
@@ -72,7 +72,7 @@ export const LiveChat: React.FC<LiveChatProps> = ({ channelName }) => {
     }
   };
 
-  // Se username nÃ£o estÃ¡ definido, mostrar formulÃ¡rio
+  // Se username nao esta definido, mostrar formulario
   if (!isUsernameSet) {
     return (
       <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg shadow-inner flex flex-col p-6 h-full items-center justify-center">
