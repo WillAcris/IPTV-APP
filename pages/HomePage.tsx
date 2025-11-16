@@ -32,7 +32,7 @@ export const HomePage: React.FC<HomePageProps> = ({ selectedChannel }) => {
         
         {/* Chat Section - Mesma altura do player */}
         {selectedChannel && (
-          <div className="w-full lg:w-80 mt-6 lg:mt-0">
+          <div className="w-full lg:w-96 mt-6 lg:mt-0">
             <div className="aspect-video h-full">
               <LiveChat channelName={selectedChannel.name} />
             </div>
