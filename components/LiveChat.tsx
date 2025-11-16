@@ -98,7 +98,7 @@ export const LiveChat: React.FC<LiveChatProps> = ({ channelName }) => {
           </button>
         </form>
       </div>
-    );
+    )
   }
 
   return (
