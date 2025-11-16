@@ -23,12 +23,19 @@ export const HomePage: React.FC<HomePageProps> = ({ selectedChannel }) => {
   }
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="w-full max-w-4xl mx-auto" style={{ width: '70%' }}>
-        <VideoPlayer src={selectedChannel.url} channelName={selectedChannel.name} />
-        <h1 className="text-2xl font-bold mt-4 mb-4 text-gray-900 dark:text-white text-center">Tocando agora: {selectedChannel.name}</h1>
+    <div className="p-4 md:p-8 flex flex-col lg:flex-row lg:gap-6 lg:items-start lg:h-screen lg:overflow-hidden">
+      {/* Player Section */}
+      <div className="flex-1 flex flex-col">
+        <div className="w-full max-w-4xl mx-auto lg:mx-0" style={{ width: '100%' }}>
+          <VideoPlayer src={selectedChannel.url} channelName={selectedChannel.name} />
+          <h1 className="text-2xl font-bold mt-4 mb-4 text-gray-900 dark:text-white text-center lg:text-left">Tocando agora: {selectedChannel.name}</h1>
+        </div>
       </div>
-      <LiveChat channelName={selectedChannel.name} />
+      
+      {/* Chat Section - Mobile: below, Desktop: sidebar */}
+      <div className="w-full lg:w-80 lg:flex-shrink-0 lg:h-full">
+        <LiveChat channelName={selectedChannel.name} />
+      </div>
     </div>
   );
 };
