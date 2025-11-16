@@ -106,9 +106,9 @@ export const LiveChat: React.FC<LiveChatProps> = ({ channelName }) => {
       <h2 className="text-lg font-semibold p-3 text-blue-600 dark:text-blue-300 border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
         Chat ao Vivo - {channelName}
       </h2>
-      <div className="flex-1 p-4 overflow-y-auto space-y-3 min-h-0">
+      <div className="flex-1 p-4 overflow-y-auto space-y-3">
         {messages.length === 0 && (
-          <div className="text-center text-gray-500 dark:text-gray-400 mt-8">
+          <div className="flex items-center justify-center h-full text-center text-gray-500 dark:text-gray-400">
             Nenhuma mensagem ainda. Seja o primeiro a conversar!
           </div>
         )}
