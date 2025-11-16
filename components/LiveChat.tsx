@@ -81,7 +81,7 @@ export const LiveChat: React.FC<LiveChatProps> = ({ channelName }) => {
   // Se username não está definido, mostrar formulário
   if (!isUsernameSet) {
     return (
-      <div className="mt-6 lg:mt-0 bg-gray-50 dark:bg-slate-800/50 rounded-lg shadow-inner flex flex-col p-6 h-[calc(100vh-450px)] lg:h-full lg:aspect-video items-center justify-center">
+      <div className="mt-6 lg:mt-0 bg-gray-50 dark:bg-slate-800/50 rounded-lg shadow-inner flex flex-col p-6 aspect-video items-center justify-center">
         <h2 className="text-lg font-semibold mb-4 text-blue-600 dark:text-blue-300">
           Entre no Chat
         </h2>
@@ -108,7 +108,7 @@ export const LiveChat: React.FC<LiveChatProps> = ({ channelName }) => {
   }
 
   return (
-    <div className="mt-6 lg:mt-0 bg-gray-50 dark:bg-slate-800/50 rounded-lg shadow-inner flex flex-col h-[calc(100vh-450px)] lg:h-full lg:aspect-video">
+    <div className="mt-6 lg:mt-0 bg-gray-50 dark:bg-slate-800/50 rounded-lg shadow-inner flex flex-col aspect-video">
       <h2 className="text-lg font-semibold p-3 text-blue-600 dark:text-blue-300 border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
         Chat ao Vivo - {channelName}
       </h2>
