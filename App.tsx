@@ -55,40 +55,16 @@ const App: React.FC = () => {
         return <div className="flex items-center justify-center h-full"><p className="text-xl text-red-500">{error}</p></div>;
     }
 
-    return (
-      <div className="relative w-full h-full">
-        {/* Player sempre presente, mas oculto quando não é a página HOME */}
-        {selectedChannel && (
-          <div 
-            style={{ 
-              display: currentPage === Page.HOME ? 'block' : 'none',
-              width: '100%',
-              height: '100%'
-            }}
-          >
-            <HomePage selectedChannel={selectedChannel} />
-          </div>
-        )}
-        
-        {/* Outras páginas */}
-        {currentPage === Page.CHANNEL_LIST && (
-          <div style={{ display: 'block', width: '100%', height: '100%' }}>
-            <ChannelListPage channels={channels} onSelectChannel={handleSelectChannel} />
-          </div>
-        )}
-        
-        {currentPage === Page.SETTINGS && (
-          <div style={{ display: 'block', width: '100%', height: '100%' }}>
-            <SettingsPage />
-          </div>
-        )}
-        
-        {/* Fallback */}
-        {currentPage !== Page.HOME && currentPage !== Page.CHANNEL_LIST && currentPage !== Page.SETTINGS && (
-          <HomePage selectedChannel={selectedChannel} />
-        )}
-      </div>
-    );
+    switch (currentPage) {
+      case Page.HOME:
+        return <HomePage selectedChannel={selectedChannel} />;
+      case Page.CHANNEL_LIST:
+        return <ChannelListPage channels={channels} onSelectChannel={handleSelectChannel} />;
+      case Page.SETTINGS:
+        return <SettingsPage />;
+      default:
+        return <HomePage selectedChannel={selectedChannel} />;
+    }
   };
 
   return (
