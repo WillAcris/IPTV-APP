@@ -46,12 +46,6 @@ export const LiveChat: React.FC<LiveChatProps> = ({ channelName }) => {
     return () => clearInterval(interval);
   }, [channelName, isUsernameSet]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(scrollToBottom, [messages]);
-
   const handleSetUsername = (e: React.FormEvent) => {
     e.preventDefault();
     if (username.trim() === '') return;
@@ -112,7 +106,7 @@ export const LiveChat: React.FC<LiveChatProps> = ({ channelName }) => {
       <h2 className="text-lg font-semibold p-3 text-blue-600 dark:text-blue-300 border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
         Chat ao Vivo - {channelName}
       </h2>
-      <div className="flex-1 p-4 overflow-y-auto space-y-4 min-h-0">
+      <div className="flex-1 p-4 overflow-y-auto space-y-3 min-h-0">
         {messages.length === 0 && (
           <div className="text-center text-gray-500 dark:text-gray-400 mt-8">
             Nenhuma mensagem ainda. Seja o primeiro a conversar!
@@ -120,7 +114,7 @@ export const LiveChat: React.FC<LiveChatProps> = ({ channelName }) => {
         )}
         {messages.map((msg, index) => (
           <div key={`${msg.id}-${index}`} className={`flex flex-col ${msg.author === username ? 'items-end' : 'items-start'}`}>
-            <div className={`rounded-lg px-3 py-2 max-w-xs lg:max-w-full ${
+            <div className={`rounded-lg px-3 py-2 max-w-xs lg:max-w-[280px] ${
                 msg.author === username
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-gray-300'
@@ -128,7 +122,7 @@ export const LiveChat: React.FC<LiveChatProps> = ({ channelName }) => {
               <div className="font-bold text-sm">
                 {msg.author}
               </div>
-              <p className="text-sm break-words">{msg.text}</p>
+              <p className="text-sm break-words leading-relaxed">{msg.text}</p>
               <div className="text-xs text-right opacity-70 mt-1">
                 {new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
               </div>
