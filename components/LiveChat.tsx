@@ -54,11 +54,11 @@ export const LiveChat: React.FC<LiveChatProps> = ({ channelName }) => {
   };
 
   return (
-    <div className="mt-6 lg:mt-0 bg-gray-50 dark:bg-slate-800/50 rounded-lg shadow-inner flex flex-col max-h-[calc(100vh-450px)] lg:max-h-[calc(100vh-120px)] lg:h-full">
-      <h2 className="text-xl font-semibold p-4 text-blue-600 dark:text-blue-300 border-b border-gray-200 dark:border-slate-700">
+    <div className="mt-6 lg:mt-0 bg-gray-50 dark:bg-slate-800/50 rounded-lg shadow-inner flex flex-col max-h-[calc(100vh-450px)] lg:aspect-video lg:max-h-none">
+      <h2 className="text-lg font-semibold p-3 text-blue-600 dark:text-blue-300 border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
         Chat ao Vivo para {channelName}
       </h2>
-      <div className="flex-1 p-4 overflow-y-auto space-y-4">
+      <div className="flex-1 p-4 overflow-y-auto space-y-4 min-h-0">
         {messages.map((msg, index) => (
           <div key={`${msg.id}-${index}`} className={`flex flex-col ${msg.author === 'Você' ? 'items-end' : 'items-start'}`}>
             <div className={`rounded-lg px-3 py-2 max-w-xs lg:max-w-full ${
@@ -78,7 +78,7 @@ export const LiveChat: React.FC<LiveChatProps> = ({ channelName }) => {
         ))}
         <div ref={messagesEndRef} />
       </div>
-      <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-slate-700 flex flex-shrink-0">
+      <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-200 dark:border-slate-700 flex flex-shrink-0">
         <input
           type="text"
           value={newMessage}
