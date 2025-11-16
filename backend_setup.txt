@@ -1,0 +1,105 @@
+# Guia de Instalação do Backend (Node.js + Socket.IO)
+
+Este guia explica como configurar e executar o servidor de backend necessário para a funcionalidade de chat em tempo real do aplicativo IPTV Player.
+
+## Pré-requisitos
+
+- Node.js (versão 14.x ou superior)
+- npm (geralmente instalado com o Node.js) ou Yarn
+
+## Passos de Instalação
+
+1.  **Crie uma pasta para o backend:**
+    No seu terminal, crie um novo diretório para o servidor e navegue até ele.
+    ```bash
+    mkdir iptv-player-backend
+    cd iptv-player-backend
+    ```
+
+2.  **Inicie um novo projeto Node.js:**
+    Este comando criará um arquivo `package.json`.
+    ```bash
+    npm init -y
+    ```
+
+3.  **Instale as dependências necessárias:**
+    Vamos usar Express para o servidor HTTP, Socket.IO para a comunicação em tempo real e CORS para permitir conexões do frontend.
+    ```bash
+    npm install express socket.io cors
+    ```
+
+4.  **Crie o arquivo do servidor:**
+    Crie um arquivo chamado `server.js` (ou `index.js`) na pasta `iptv-player-backend` e cole o seguinte código:
+
+    ```javascript
+    const express = require('express');
+    const http = require('http');
+    const { Server } = require("socket.io");
+    const cors = require('cors');
+
+    const app = express();
+    app.use(cors()); // Habilita o CORS para todas as rotas
+
+    const server = http.createServer(app);
+
+    const io = new Server(server, {
+      cors: {
+        origin: "*", // Em produção, restrinja para o domínio do seu frontend
+        methods: ["GET", "POST"]
+      }
+    });
+
+    const PORT = 4000;
+
+    // Simula um histórico de mensagens em memória.
+    // Em uma aplicação real, você usaria um banco de dados.
+    const messageHistory = [];
+
+    io.on('connection', (socket) => {
+      console.log('Um usuário se conectou:', socket.id);
+
+      // Envia o histórico de mensagens para o novo usuário
+      socket.emit('load_history', messageHistory);
+
+      // Ouve por novas mensagens
+      socket.on('send_message', (message) => {
+        console.log('Mensagem recebida:', message);
+        messageHistory.push(message);
+
+        // Limita o histórico para as últimas 50 mensagens
+        if (messageHistory.length > 50) {
+            messageHistory.shift();
+        }
+
+        // Transmite a mensagem para todos os outros clientes conectados
+        // O autor original já adiciona a mensagem ao seu estado local,
+        // então enviamos para todos os outros com 'broadcast'.
+        socket.broadcast.emit('receive_message', message);
+      });
+
+      // Lida com a desconexão
+      socket.on('disconnect', () => {
+        console.log('Usuário desconectado:', socket.id);
+      });
+    });
+
+    server.listen(PORT, () => {
+      console.log(`Servidor de chat rodando na porta ${PORT}`);
+    });
+    ```
+
+5.  **Inicie o servidor:**
+    No terminal, dentro da pasta `iptv-player-backend`, execute o comando:
+    ```bash
+    node server.js
+    ```
+
+## Conclusão
+
+Seu servidor de backend agora está rodando na porta 4000 (`http://localhost:4000`). O frontend do IPTV Player, ao ser aberto, tentará se conectar a este servidor para habilitar o chat ao vivo.
+
+Lembre-se que este é um backend simples para fins de desenvolvimento. Para um ambiente de produção, considere:
+- Usar um banco de dados (como MongoDB, PostgreSQL, ou Redis) para persistir as mensagens.
+- Implementar autenticação de usuários.
+- Gerenciar salas de chat separadas para cada canal de TV.
+- Configurar o CORS de forma mais restritiva.
