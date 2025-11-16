@@ -9,7 +9,7 @@ import { getChannels } from './services/iptvService';
 import { BottomNavBar } from './components/BottomNavBar';
 
 const App: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState<Page>(Page.HOME);
+  const [currentPage, setCurrentPage] = useState<Page>(Page.CHANNEL_LIST);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
