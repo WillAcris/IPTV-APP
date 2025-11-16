@@ -24,8 +24,10 @@ export const HomePage: React.FC<HomePageProps> = ({ selectedChannel }) => {
 
   return (
     <div className="p-4 md:p-8">
-      <h1 className="text-3xl font-bold mb-4 text-gray-900 dark:text-white">Tocando agora: {selectedChannel.name}</h1>
-      <VideoPlayer src={selectedChannel.url} channelName={selectedChannel.name} />
+      <div className="w-full max-w-4xl mx-auto" style={{ width: '70%' }}>
+        <VideoPlayer src={selectedChannel.url} channelName={selectedChannel.name} />
+        <h1 className="text-2xl font-bold mt-4 mb-4 text-gray-900 dark:text-white text-center">Tocando agora: {selectedChannel.name}</h1>
+      </div>
       <LiveChat channelName={selectedChannel.name} />
     </div>
   );
