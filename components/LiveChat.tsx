@@ -117,11 +117,7 @@ export const LiveChat: React.FC<LiveChatProps> = ({ channelName }) => {
         ) : (
           messages.map((msg, index) => (
             <div key={`${msg.id}-${index}`} className={`flex flex-col ${msg.author === username ? 'items-end' : 'items-start'}`}>
-              <div className={`rounded-lg px-2.5 py-1.5 max-w-[85%] ${
-                  msg.author === username
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-gray-300'
-                }`}>
+              <div className={`rounded-lg px-2.5 py-1.5 max-w-[85%] ${msg.author === username ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-gray-300'}`}>
                 <div className="font-semibold text-xs">
                   {msg.author}
                 </div>
