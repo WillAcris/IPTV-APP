@@ -27,7 +27,7 @@ export const HomePage: React.FC<HomePageProps> = ({ selectedChannel }) => {
       {/* Player Section */}
       <div className="flex-1 flex flex-col">
         <div className="w-full max-w-4xl mx-auto lg:mx-0" style={{ width: '100%' }}>
-          <VideoPlayer ref={videoPlayerRef} src={selectedChannel.url} channelName={selectedChannel.name} />
+          <VideoPlayer src={selectedChannel.url} channelName={selectedChannel.name} />
           <h1 className="text-2xl font-bold mt-4 mb-4 text-gray-900 dark:text-white text-center lg:text-left">Tocando agora: {selectedChannel.name}</h1>
         </div>
       </div>
