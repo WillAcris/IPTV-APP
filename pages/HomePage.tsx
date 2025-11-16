@@ -24,16 +24,18 @@ export const HomePage: React.FC<HomePageProps> = ({ selectedChannel }) => {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="flex flex-col lg:flex-row lg:gap-6 lg:items-start">
+      <div className="flex flex-col lg:flex-row lg:gap-6">
         {/* Player Section */}
         <div className="flex-1">
           <VideoPlayer src={selectedChannel.url} channelName={selectedChannel.name} />
           <h1 className="text-2xl font-bold mt-4 mb-4 text-gray-900 dark:text-white text-center lg:text-left">Tocando agora: {selectedChannel.name}</h1>
         </div>
         
-        {/* Chat Section - Largura fixa, altura igual ao player */}
-        <div className="w-full lg:w-80 mt-6 lg:mt-0 lg:self-stretch">
-          <LiveChat channelName={selectedChannel.name} />
+        {/* Chat Section - Mesma altura do player usando aspect-video */}
+        <div className="w-full lg:w-80 mt-6 lg:mt-0">
+          <div className="aspect-video">
+            <LiveChat channelName={selectedChannel.name} />
+          </div>
         </div>
       </div>
     </div>
