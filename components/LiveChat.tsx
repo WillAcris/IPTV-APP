@@ -6,7 +6,7 @@ interface LiveChatProps {
   channelName: string;
 }
 
-const SOCKET_SERVER_URL = 'http://localhost:4000';
+const SOCKET_SERVER_URL = 'https://iptv-app-7x3r.onrender.com';
 
 export const LiveChat: React.FC<LiveChatProps> = ({ channelName }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
