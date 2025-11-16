@@ -38,7 +38,7 @@ export const HomePage: React.FC<HomePageProps> = ({ selectedChannel }) => {
         )}
       </div>
       
-      <h1 className="text-2xl font-bold mt-4 mb-4 text-gray-900 dark:text-white text-center lg:text-left">Tocando agora: {selectedChannel.name}</h1>
+      <h1 className="text-2xl font-bold mt-4 mb-4 text-gray-900 dark:text-white text-center lg:text-left">Você está assistindo: {selectedChannel.name}</h1>
     </div>
   );
 };
